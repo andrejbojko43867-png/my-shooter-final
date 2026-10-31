@@ -12,10 +12,24 @@ jobs:
         with:
           python-version: '3.9'
 
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android Build Tools
+        run: |
+          sdkmanager "build-tools;34.0.0" "platforms;android-33"
+          echo "$ANDROID_HOME/build-tools/34.0.0" >> $GITHUB_PATH
+
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses-dev libtinfo6 cmake libffi-dev libssl-dev
+          sudo apt-get install -y git zip unzip autoconf libtool pkg-config zlib1g-dev libncurses-dev libtinfo6 cmake libffi-dev libssl-dev
 
       - name: Install Buildozer and Cython
         run: |
@@ -24,7 +38,6 @@ jobs:
 
       - name: Build with Buildozer
         run: |
-          export APP_ANDROID_ACCEPT_SDK_LICENSE=1
           yes | buildozer android debug
 
       - name: Upload APK
