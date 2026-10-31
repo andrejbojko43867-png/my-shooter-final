@@ -3,34 +3,20 @@ on: [push, workflow_dispatch]
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.9'
+          python-version: '3.10'
 
-      - name: Set up Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android Build Tools
-        run: |
-          sdkmanager "build-tools;34.0.0" "platforms;android-33"
-          echo "$ANDROID_HOME/build-tools/34.0.0" >> $GITHUB_PATH
-
-      - name: Install system dependencies
+      - name: Install system dependencies (Java, Android SDK)
         run: |
           sudo apt-get update
-          sudo apt-get install -y git zip unzip autoconf libtool pkg-config zlib1g-dev libncurses-dev libtinfo6 cmake libffi-dev libssl-dev
-
+          sudo apt-get install -y git zip unzip openjdk-17-jdk autoconf libtool pkg-config zlib1g-dev libncurses-dev libtinfo6 cmake libffi-dev libssl-dev
+          
       - name: Install Buildozer and Cython
         run: |
           pip install --upgrade buildozer
@@ -38,6 +24,12 @@ jobs:
 
       - name: Build with Buildozer
         run: |
+          export ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
+          export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin
+          # Принимаем лицензии перед сборкой
+          mkdir -p $ANDROID_SDK_ROOT
+          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          # Запускаем сборку, автоматически отвечая 'y' на все вопросы
           yes | buildozer android debug
 
       - name: Upload APK
