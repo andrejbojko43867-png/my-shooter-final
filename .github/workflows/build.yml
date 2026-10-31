@@ -12,24 +12,39 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install system dependencies (Java, Android SDK)
+      - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y git zip unzip openjdk-17-jdk autoconf libtool pkg-config zlib1g-dev libncurses-dev libtinfo6 cmake libffi-dev libssl-dev
-          
+
       - name: Install Buildozer and Cython
         run: |
           pip install --upgrade buildozer
           pip install "cython<3.0" virtualenv
 
+      - name: Force install sdkmanager for Buildozer
+        run: |
+          # Создаем папку, куда Buildozer пытается установить SDK
+          SDK_DIR="$HOME/.buildozer/android/platform/android-sdk"
+          mkdir -p "$SDK_DIR"
+          
+          # Скачиваем Command-line Tools (в них есть sdkmanager)
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdline-tools.zip
+          unzip -q cmdline-tools.zip -d "$SDK_DIR"
+          
+          # Перемещаем в структуру, которую ожидает Buildozer (tools/bin/sdkmanager)
+          mkdir -p "$SDK_DIR/tools"
+          mv "$SDK_DIR/cmdline-tools/bin" "$SDK_DIR/tools/bin"
+          mv "$SDK_DIR/cmdline-tools/lib" "$SDK_DIR/tools/lib"
+          
+          # Принимаем лицензии
+          yes | "$SDK_DIR/tools/bin/sdkmanager" --licenses || true
+
       - name: Build with Buildozer
         run: |
-          export ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
-          export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin
-          # Принимаем лицензии перед сборкой
-          mkdir -p $ANDROID_SDK_ROOT
-          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses || true
-          # Запускаем сборку, автоматически отвечая 'y' на все вопросы
+          # Передаем путь к SDK, чтобы Buildozer не качал его заново
+          export ANDROID_SDK_ROOT="$HOME/.buildozer/android/platform/android-sdk"
+          export ANDROID_HOME="$ANDROID_SDK_ROOT"
           yes | buildozer android debug
 
       - name: Upload APK
