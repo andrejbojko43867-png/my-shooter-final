@@ -12,7 +12,7 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Set up Java 17 (обновленный экшен)
+      - name: Set up Java 17
         uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
@@ -28,21 +28,27 @@ jobs:
           pip install --upgrade buildozer
           pip install "cython<3.0" virtualenv
 
+      # КЭШИРОВАНИЕ SDK и NDK (чтобы не качать каждый раз)
+      - name: Cache Buildozer SDK and NDK
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.buildozer/android/platform/android-sdk
+            ~/.buildozer/android/platform/android-ndk-r25b
+          key: ${{ runner.os }}-buildozer-sdk-v1
+
       - name: Setup Android SDK
         run: |
           export SDK_DIR="$HOME/.buildozer/android/platform/android-sdk"
-          mkdir -p "$SDK_DIR/cmdline-tools"
-          
-          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdline-tools.zip
-          unzip -q cmdline-tools.zip -d /tmp/cmdline-tools
-          
-          mv /tmp/cmdline-tools/cmdline-tools "$SDK_DIR/cmdline-tools/latest"
-          
-          mkdir -p "$SDK_DIR/tools/bin"
-          ln -sf "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" "$SDK_DIR/tools/bin/sdkmanager"
-          
-          yes | "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" --licenses || true
-          
+          if [ ! -d "$SDK_DIR/cmdline-tools/latest" ]; then
+            mkdir -p "$SDK_DIR/cmdline-tools"
+            wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdline-tools.zip
+            unzip -q cmdline-tools.zip -d /tmp/cmdline-tools
+            mv /tmp/cmdline-tools/cmdline-tools "$SDK_DIR/cmdline-tools/latest"
+            mkdir -p "$SDK_DIR/tools/bin"
+            ln -sf "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" "$SDK_DIR/tools/bin/sdkmanager"
+            yes | "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" --licenses || true
+          fi
           echo "ANDROID_HOME=$SDK_DIR" >> $GITHUB_ENV
           echo "ANDROID_SDK_ROOT=$SDK_DIR" >> $GITHUB_ENV
 
@@ -52,6 +58,8 @@ jobs:
           export ANDROID_SDK_ROOT="$ANDROID_HOME"
           export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
           
+          # Увеличиваем таймаут, чтобы не падало на долгой компиляции
+          export BUILDOZER_WARN_ON_ROOT=0
           yes | buildozer android debug
 
       - name: Upload APK
