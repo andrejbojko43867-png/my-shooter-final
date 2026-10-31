@@ -15,19 +15,22 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses-dev libtinfo6 cmake libffi-dev libssl-dev
+          sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses-dev libtinfo6 cmake libffi-dev libssl-dev libstdc++6
 
       - name: Install Buildozer and Cython
         run: |
           pip install --upgrade buildozer
           pip install "cython<3.0" virtualenv
 
-      - name: Accept Android SDK licenses
+      - name: Build with Buildozer (Auto-accept licenses)
         run: |
-          yes | sdkmanager --licenses || true
+          # Передаем 'y' на все вопросы лицензии
+          yes | buildozer android debug
 
-      - name: Build with Buildozer
-        run: buildozer android debug
+      - name: Verify AIDL (Debug)
+        run: |
+          # Проверяем, что aidl на месте (для логов)
+          find $HOME/.buildozer -name "aidl" -type f 2>/dev/null || echo "aidl not found, but build might still proceed"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

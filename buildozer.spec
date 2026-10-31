@@ -13,3 +13,4 @@ fullscreen = 1
 log_level = 2
 warn_on_root = 1
 android.accept_sdk_license = True
+android.build_tools_version = 34.0.0
