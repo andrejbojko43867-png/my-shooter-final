@@ -12,39 +12,49 @@ jobs:
         with:
           python-version: '3.10'
 
+      - name: Set up Java 17 (ОБЯЗАТЕЛЬНО для sdkmanager)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y git zip unzip openjdk-17-jdk autoconf libtool pkg-config zlib1g-dev libncurses-dev libtinfo6 cmake libffi-dev libssl-dev
+          sudo apt-get install -y git zip unzip autoconf libtool pkg-config zlib1g-dev libncurses-dev libtinfo6 cmake libffi-dev libssl-dev
 
       - name: Install Buildozer and Cython
         run: |
           pip install --upgrade buildozer
           pip install "cython<3.0" virtualenv
 
-      - name: Force install sdkmanager for Buildozer
+      - name: Force install sdkmanager and setup SDK
         run: |
-          # Создаем папку, куда Buildozer пытается установить SDK
-          SDK_DIR="$HOME/.buildozer/android/platform/android-sdk"
+          export SDK_DIR="$HOME/.buildozer/android/platform/android-sdk"
           mkdir -p "$SDK_DIR"
+          mkdir -p "$SDK_DIR/tools/bin"
           
-          # Скачиваем Command-line Tools (в них есть sdkmanager)
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdline-tools.zip
-          unzip -q cmdline-tools.zip -d "$SDK_DIR"
+          unzip -q cmdline-tools.zip -d /tmp/cmdline-tools
           
-          # Перемещаем в структуру, которую ожидает Buildozer (tools/bin/sdkmanager)
-          mkdir -p "$SDK_DIR/tools"
-          mv "$SDK_DIR/cmdline-tools/bin" "$SDK_DIR/tools/bin"
-          mv "$SDK_DIR/cmdline-tools/lib" "$SDK_DIR/tools/lib"
+          cp -r /tmp/cmdline-tools/cmdline-tools/* "$SDK_DIR/tools/"
           
-          # Принимаем лицензии
+          # Принудительно используем Java 17 для sdkmanager
+          export JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))
+          
           yes | "$SDK_DIR/tools/bin/sdkmanager" --licenses || true
+          "$SDK_DIR/tools/bin/sdkmanager" "platform-tools" "platforms;android-31" "build-tools;31.0.0" || true
+          
+          echo "ANDROID_HOME=$SDK_DIR" >> $GITHUB_ENV
+          echo "ANDROID_SDK_ROOT=$SDK_DIR" >> $GITHUB_ENV
+          echo "$SDK_DIR/tools/bin" >> $GITHUB_PATH
 
       - name: Build with Buildozer
         run: |
-          # Передаем путь к SDK, чтобы Buildozer не качал его заново
-          export ANDROID_SDK_ROOT="$HOME/.buildozer/android/platform/android-sdk"
-          export ANDROID_HOME="$ANDROID_SDK_ROOT"
+          export ANDROID_HOME="$HOME/.buildozer/android/platform/android-sdk"
+          export ANDROID_SDK_ROOT="$ANDROID_HOME"
+          export PATH="$ANDROID_HOME/tools/bin:$PATH"
+          
           yes | buildozer android debug
 
       - name: Upload APK
